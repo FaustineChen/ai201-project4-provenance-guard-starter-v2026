@@ -31,6 +31,7 @@ from flask import Flask, jsonify, request
 import audit
 import config
 import detector
+import audit
 import uuid
 
 app = Flask(__name__)
@@ -221,13 +222,23 @@ def submit():
 
     content_id = str(uuid.uuid4())
     model_score = detector.model_signal(text)
+    guess = "unknown"
+    label = "placeholder"
+
+    audit.log_decision(
+        content_id=content_id,
+        creator_id=creator_id,
+        guess=guess,
+        model_score=model_score,
+        label=label
+    )
 
     return jsonify({"content_id": content_id,
-                    "guess": "unknown",             # place holder
+                    "guess": guess,             # place holder
                     "confidence": 0.0,              #  place holder
-                    "label": "placeholder",         # place holder
+                    "label": label,         # place holder
                     "model_score": model_score,
-                    "style_score": "detector", 
+                    "style_score": None, 
                     }), 200
 
 
