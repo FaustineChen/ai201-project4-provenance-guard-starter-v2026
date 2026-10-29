@@ -30,6 +30,7 @@ from flask import Flask, jsonify, request
 
 import audit
 import config
+import uuid
 
 app = Flask(__name__)
 
@@ -203,8 +204,6 @@ def submit():
     """
     payload = request.get_json(silent=True) or {}
 
-    # TODO: delete this and build the route.
-
     text = payload.get("text")
     creator_id = payload.get("creator_id")
 
@@ -219,10 +218,10 @@ def submit():
         return jsonify({"error": "text_too_long",
                         "message": f"text must be at most {MAX_TEXT_LENGTH} characters"}), 413
 
+    content_id = str(uuid.uuid4())
     
-    return jsonify({"content_id": "test", "guess": "unknown",
-                   "confidence": 0.0, "label": "placeholder",
-                   "you_sent": {"text": text, "creator_id": creator_id},}), 200
+    return jsonify({"content_id": content_id, "guess": "unknown",
+                   "confidence": 0.0, "label": "placeholder"}), 200
 
 
 @app.post("/appeal")
