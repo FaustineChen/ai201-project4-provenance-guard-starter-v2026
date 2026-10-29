@@ -49,6 +49,8 @@ app = Flask(__name__)
 # warning on every start. In-memory is right for one laptop and wrong for
 # anything real — a restart forgets every count.
 
+MAX_TEXT_LENGTH = 10_000
+
 class _LimiterOff:
     """
     Stands in for the real limiter while rate limiting is off.
@@ -202,14 +204,25 @@ def submit():
     payload = request.get_json(silent=True) or {}
 
     # TODO: delete this and build the route.
-    return jsonify({
-        "error": "not_implemented",
-        "message": "POST /submit isn't built yet — see the TODO in app.py.",
-        "you_sent": {
-            "text_length": len(payload.get("text", "")),
-            "creator_id": payload.get("creator_id"),
-        },
-    }), 501
+
+    text = payload.get("text")
+    creator_id = payload.get("creator_id")
+
+    # check criteria 5
+    if not isinstance(text, str) or not text.strip():
+        return jsonify({"error": "bad_request",
+                        "message": "text is required to be a non-empty string"}), 400
+    if not isinstance(creator_id, str) or not creator_id.strip():
+        return jsonify({"error": "bad_request",
+                        "message": "creator_id is required and must be a non-empty string"}), 400
+    if len(text) > MAX_TEXT_LENGTH:
+        return jsonify({"error": "text_too_long",
+                        "message": f"text must be at most {MAX_TEXT_LENGTH} characters"}), 413
+
+    
+    return jsonify({"content_id": "test", "guess": "unknown",
+                   "confidence": 0.0, "label": "placeholder",
+                   "you_sent": {"text": text, "creator_id": creator_id},}), 200
 
 
 @app.post("/appeal")
