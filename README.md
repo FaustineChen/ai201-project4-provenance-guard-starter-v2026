@@ -54,18 +54,49 @@
 ### Signal one — the model signal
 
 **What it measures:**
+Perplexity under a local language model (gpt2): how predictable the text is
+to the model. ( 0–1 score, higher means more likely AI)
+It measures predictability, not authorship.
 
 **Why that might differ between human and AI writing:**
+LLM generates text by repeatedly choosing likely next words, so
+its output tends to be easy for another model to predict as AI.
+Human writing tends to include more surprising wording, abrupt turns,
+and specific details, which raises perplexity.
 
 **What it can't see:**
+Who really wrote the text. 
+The detector only measures how predictable the text is. Simple words and short, plain sentences are very predictable, so
+they get a high "AI" score. But many real people write this way (for example, people writing in a second language).
+In my test, a plain human paragraph scored 0.7, close to the AI samples. So the detector can wrongly accuse real writers.
 
 ### Signal two — the style signal
 
 **What it measures:**
+The shape of the text, without reading its meaning. Three measures:
+sentence-length spread (standard deviation divided by mean sentence length),
+type-token ratio (unique words divided by total words), and punctuation
+density (em dashes, colons and semicolons per 100 words). Each is converted
+to a 0-1 score where higher means more AI-like, then combined into one score.
 
 **Why that might differ between human and AI writing:**
+Generated prose tends toward even, mid-length sentences and a narrower
+vocabulary, because "most likely next word" produces that on average.
+Human writing is more varied punctuation habits.
 
 **What it can't see:**
+What the text says. Anything that changes the shape without changing the
+substance moves the score: adding typos, splitting or merging sentences,
+pasting in a quotation, or telling an AI to "vary your sentence length and
+avoid dashes".
+It is also unreliable on short text such as poems: with few
+sentences, the spread is meaningless, and type-token ratio looks high
+simply because there are few words to repeat.
+Poems also break the assumptions behind the measures (line breaks instead of sentences,
+little punctuation by design).
+A plainly written, regular human writer can look
+machine-like. Below a minimum length, this signal returns 0.5 and is marked
+"insufficient data" rather than guessing.
 
 ### The combining rule
 
