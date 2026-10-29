@@ -42,63 +42,69 @@ Two things worth knowing before you pick numbers:
   a **miss**.
 
 ---
-## 1.
+## 1.False positives
 
 <!-- Your criterion. It must name a number. -->
-
+ Of 10 human-written pieces I wrote myself:
+   - at most 1 is labeled high-confidence AI (false accusation)
+   - at least 6 are labeled high-confidence human, so at most 3 can be unsure.
 
 
 **Why this target:**
-
+No detector is perfect, so I allow one miss, but a wrong accusation costs a writer more than a missed detection.
+"Unsure" is the safe failure, but a system that says unsure about everything is useless.
 
 
 ---
 
-## 2.
+## 2.Score spread
 
 <!-- Your criterion. -->
-
+Pair each of my 10 AI-generated texts with each of my 10 human-written texts (100 pairs).
+In at least 80% of pairs, the AI text gets the higher combined score.
 
 
 **Why this target:**
-
+50% is random guessing, so 80% means the signals really separate the groups.
+It does not depend on guessing where scores will land.
 
 
 ---
 
-## 3.
+## 3.Label coverage
 
 <!-- Your criterion. -->
-
+Feed scores 0.00 to 1.00 in steps of 0.01 (101 values) into the score-to-label function.
+Every score returns exactly one of the three labels (no errors, no empty values), and all three labels appear.
 
 
 **Why this target:**
-
+this checks the thresholds for gaps or an empty "unsure" range. It needs no text, so it cannot be gamed. Must pass 101 of 101.
 
 
 ---
 
-## 4.
+## 4.The appeal path
 
 <!-- Your criterion. -->
-
+Send an appeal for 10 different valid content_ids. All 10 change to under_review and the reasoning can be read back afterwards. An appeal for a nonexistent content_id returns 404 and creates no record.
 
 
 **Why this target:**
-
+the appeal is the only way out for a wrongly accused writer, so it must work every time, not 90% of the time.
 
 
 ---
 
-## 5.
+## 5.Bad input
 
 <!-- Your criterion. -->
-
+Missing text, empty text, missing creator_id, and text over 10,000 characters
+each return a clear 4xx error (no 500, no crash), and /ping still answers afterwards.
 
 
 **Why this target:**
-
-
+Bad input will arrive by accident or on purpose, and the service must stay up.
 
 ---
 
