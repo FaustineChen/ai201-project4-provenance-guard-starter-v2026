@@ -30,6 +30,7 @@ from flask import Flask, jsonify, request
 
 import audit
 import config
+import detector
 import uuid
 
 app = Flask(__name__)
@@ -219,9 +220,15 @@ def submit():
                         "message": f"text must be at most {MAX_TEXT_LENGTH} characters"}), 413
 
     content_id = str(uuid.uuid4())
-    
-    return jsonify({"content_id": content_id, "guess": "unknown",
-                   "confidence": 0.0, "label": "placeholder"}), 200
+    model_score = detector.model_signal(text)
+
+    return jsonify({"content_id": content_id,
+                    "guess": "unknown",             # place holder
+                    "confidence": 0.0,              #  place holder
+                    "label": "placeholder",         # place holder
+                    "model_score": model_score,
+                    "style_score": "detector", 
+                    }), 200
 
 
 @app.post("/appeal")
