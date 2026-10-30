@@ -18,6 +18,14 @@ you claim, so that line should read `scoring.py::combine_signals`.
 
 import config
 
+def _state(score: float, human_max: float, ai_min: float) -> str:
+    """Sort one signal into 'human', 'unsure' or 'ai'."""
+    if score >= ai_min:
+        return "ai"
+    if score <= human_max:
+        return "human"
+    return "unsure"
+
 
 def combine_signals(model_score: float, style_score: float) -> float:
     """
@@ -52,12 +60,33 @@ def combine_signals(model_score: float, style_score: float) -> float:
     The weights in config.py are placeholders. Change them, or ignore them and
     write a different rule.
     """
-    # TODO: replace this
-    return (
+    
+    """
+    each signal is sorted into human / unsure / ai, then the pair decides the outcome.
+        ai    + ai     -> weighted average (lands in the AI range)
+        human + human  -> weighted average (lands in the human range)
+        human + unsure -> human
+        everything else (ai+human, unsure+unsure, ai+unsure) -> unsure
+
+    High-confidence AI needs BOTH signals to point to AI.
+    """
+    avg = (
         config.WEIGHT_MODEL_SIGNAL * model_score
         + config.WEIGHT_STYLE_SIGNAL * style_score
     )
+    model_state = _state(model_score, config.MODEL_HUMAN_MAX, config.MODEL_AI_MIN)
+    style_state = _state(style_score, config.STYLE_HUMAN_MAX, config.STYLE_AI_MIN)
+    states = {model_state, style_state}
 
+    if states == {"ai"}:
+        return max(avg, config.AI_THRESHOLD)       # guard against float error
+    if states == {"human"} or states == {"human", "unsure"}:
+        return min(avg, config.HUMAN_THRESHOLD)    # keep inside the human range
+
+    # disagreement or no confidence: force the score into the unsure range
+    low = config.HUMAN_THRESHOLD + 0.01
+    high = config.AI_THRESHOLD - 0.01
+    return max(low, min(avg, high))
 
 def score_to_label(score: float) -> tuple[str, str]:
     """
@@ -85,12 +114,12 @@ def score_to_label(score: float) -> tuple[str, str]:
     think if they got it on their own work. That question is the whole
     milestone.
     """
-    # TODO: replace this — thresholds are in config.py
+
     if score >= config.AI_THRESHOLD:
-        return "ai", "PLACEHOLDER — write the high-confidence AI label."
+        return "ai", "We think this was probably written by a person."
     if score <= config.HUMAN_THRESHOLD:
-        return "human", "PLACEHOLDER — write the high-confidence human label."
-    return "unsure", "PLACEHOLDER — write the unsure label."
+        return "human", "We can't tell whether this was written by a person or with the help of AI. This is not an accusation, and plenty of people's own writing gets this result. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review."
+    return "unsure", "Our checks suggest this may have been written with AI. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review."
 
 
 def label_ranges() -> list[tuple[str, str]]:

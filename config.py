@@ -19,7 +19,7 @@ ROOT = Path(__file__).parent
 # traffic from outside the box, and that means `0.0.0.0`. Setting the env var
 # is how you get it; the default keeps your local `curl` commands unchanged.
 HOST = os.getenv("HOST", "127.0.0.1")
-PORT = int(os.getenv("PORT", "5000"))
+PORT = int(os.getenv("PORT", "9000"))
 
 # Flask's debug mode gives anyone who can reach the service an interactive
 # Python prompt inside your process. Fine on loopback, a gift to strangers
@@ -62,17 +62,23 @@ WEIGHT_STYLE_SIGNAL = 0.5
 # Where one label becomes another. Scores run 0.0 (confidently human) to 1.0
 # (confidently AI).
 #
-#   score < HUMAN_THRESHOLD          -> high-confidence human
+#   score <= HUMAN_THRESHOLD          -> high-confidence human
 #   between the two                  -> unsure
-#   score > AI_THRESHOLD             -> high-confidence AI
+#   score >= AI_THRESHOLD             -> high-confidence AI
 #
 # ⚠️ This is where your false-positive decision from Milestone 1 actually gets
 # made. Widening the unsure band means fewer wrong accusations and more AI text
 # getting through. There is no setting that avoids the trade — only settings
 # that decide who pays for it.
 
-HUMAN_THRESHOLD = 0.35
-AI_THRESHOLD = 0.65
+# single signal threshold
+MODEL_HUMAN_MAX = 0.50   # model <= , human
+MODEL_AI_MIN = 0.55      # model >= , AI
+STYLE_HUMAN_MAX = 0.30
+STYLE_AI_MIN = 0.55
+
+HUMAN_THRESHOLD = 0.40
+AI_THRESHOLD = 0.55
 
 # ⚠️ One thing that catches people out in Milestone 5. A weighted average can
 # only land between its two inputs — so while `style_signal` is still the stub

@@ -105,7 +105,32 @@ machine-like. Below a minimum length, this signal returns 0.5 and is marked
 
 **The rule:**
 
+Each signal is first sorted into one of three states: points to human, unsure, or points to AI. The two states are then combined:
+
+| model signal | style signal | Result |
+|---|---|---|
+| AI | AI | Weighted average of the two scores (labeled AI if it reaches the AI threshold) |
+| human | human | Weighted average of the two scores (labeled human if it falls under the human threshold) |
+| human | unsure | Human |
+| AI | human | Unsure |
+| unsure | unsure | Unsure |
+| AI | unsure | Unsure |
+
+A text is called high-confidence AI only when both signals independently point to AI.
+One signal is never enough, because a wrong accusation costs a writer more than a missed detection. I accept that this lets some AI text through.
+
+If the text is too short for the style signal (under 4 sentences or under 40 words), the style signal returns 0.5.
+That falls in its "unsure" range, so short text can never be called high-confidence AI.
+
 **The numbers:**
+- model signal: human below 0.50, unsure 0.50 to 0.55, AI at 0.55 or above
+- style signal: human at 0.30 or below, unsure 0.30 to 0.55, AI at 0.55 or above
+- The style AI cutoff must stay above 0.5, which is the "too short" value.
+- weights for the average: 0.5 model, 0.5 style
+- final score to label: `HUMAN_THRESHOLD` 0.40 or below is human, `AI_THRESHOLD` 0.55 or above is AI, anything between is unsure
+- when the rule says "unsure" or "human", the output score is pushed into that label's range (unsure: kept between 0.41 and 0.54), so the label always matches the rule
+- These numbers come from 11 calibration texts. They are starting values, not statistical results.
+
 
 **Where it lives:** `scoring.py::combine_signals`
 
@@ -113,7 +138,11 @@ machine-like. Below a minimum length, this signal returns 0.5 and is marked
      somewhere else, say where. -->
 
 **A case where my two signals split, and what my rule does with it:**
+A human-written 9-sentence text scored 0.554 on the model signal (as AI-like as my AI samples, which scored 0.56 to 0.79) but 0.229 on the style signal, which clearly says human. The model signal alone cannot separate this writer from AI.
+My rule treats AI plus human as disagreement and returns unsure, so the writer is not accused.
 
+A near miss: a plain, evenly written 7-sentence human text scored 0.699 on the model signal and exactly 0.50 on the style signal, which is a real calculated value, not the "too short" default.
+It stayed unsure only because the style signal was 0.05 below its AI cutoff. Plain, regular human writing is where this system is most likely to be wrong.
 
 
 ---
@@ -127,15 +156,18 @@ machine-like. Below a minimum length, this signal returns 0.5 and is marked
 
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human |  |  |
-| unsure |  |  |
-| high-confidence AI |  |  |
+| high-confidence human | 0.00 – 0.40 | "We think this was probably written by a person." |
+| unsure | 0.40 – 0.55 | "We can't tell whether this was written by a person or with the help of AI. This is not an accusation, and plenty of people's own writing gets this result. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review." |
+| high-confidence AI | 0.55 – 1.00 | "Our checks suggest this may have been written with AI. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review." |
 
 **Why I worded the "unsure" one this way:**
 <!-- It's the hardest of the three. It has to admit uncertainty without
      sounding like an accusation, because the person reading it may well have
      written every word themselves. -->
 
+The person reading it may have written every word themselves, so it starts with what the system does not know, not with a guess about them.
+It says outright that this is not an accusation, because "can't tell" can still sound like "we suspect you". It also says that this result is common for honest writers.
+It ends with the appeal option so the reader has something to do next.
 
 
 ---
