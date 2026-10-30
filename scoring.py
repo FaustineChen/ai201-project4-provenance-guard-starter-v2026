@@ -116,10 +116,10 @@ def score_to_label(score: float) -> tuple[str, str]:
     """
 
     if score >= config.AI_THRESHOLD:
-        return "ai", "We think this was probably written by a person."
+        return "ai", "Our checks suggest this may have been written with AI. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review."
     if score <= config.HUMAN_THRESHOLD:
-        return "human", "We can't tell whether this was written by a person or with the help of AI. This is not an accusation, and plenty of people's own writing gets this result. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review."
-    return "unsure", "Our checks suggest this may have been written with AI. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review."
+        return "human", "We think this was probably written by a person."
+    return "unsure", "We can't tell whether this was written by a person or with the help of AI. This is not an accusation, and plenty of people's own writing gets this result. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review."
 
 
 def label_ranges() -> list[tuple[str, str]]:

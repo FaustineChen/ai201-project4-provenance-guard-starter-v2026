@@ -169,7 +169,13 @@ The person reading it may have written every word themselves, so it starts with 
 It says outright that this is not an accusation, because "can't tell" can still sound like "we suspect you". It also says that this result is common for honest writers.
 It ends with the appeal option so the reader has something to do next.
 
+```
+python -c "import scoring; [print(l, r) for l, r in scoring.label_ranges()]"
+```
 
+high-confidence human 0.00 – 0.40
+unsure 0.40 – 0.55
+high-confidence AI 0.55 – 1.00
 ---
 
 ## Sample Run
@@ -185,34 +191,83 @@ It ends with the appeal option so the reader has something to do next.
      diagnostics. -->
 
 ```bash
-$ curl -X POST http://127.0.0.1:5000/submit \
-  -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+$n = 0
+$item = (Get-Content body.json -Raw -Encoding utf8 | ConvertFrom-Json)[$n]
+$tmp = New-TemporaryFile
+[System.IO.File]::WriteAllText($tmp, ($item | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+curl.exe -X POST http://127.0.0.1:9000/submit -H "Content-Type: application/json" --data-binary "@$tmp"
+Remove-Item $tmp
 ```
 
 ```json
+{
+  "combined_score": 0.44179049445310137,
+  "confidence": 0.5582,
+  "content_id": "1f6676ff-a205-4a54-a8ba-7af0f7172759",
+  "guess": "unsure",
+  "label": "We can't tell whether this was written by a person or with the help of AI. This is not an accusation, and plenty of people's own writing gets this result. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review.",
+  "model_score": 0.5614,
+  "style_score": 0.3221809889062027
+}
 
 ```
 
 **An appeal**
 
 ```bash
-$ curl -X POST http://127.0.0.1:5000/appeal \
-  -H "Content-Type: application/json" \
-  -d '{"content_id": "...", "reasoning": "..."}'
+$ curl.exe -X POST http://127.0.0.1:9000/appeal -H "Content-Type: application/json" -d '{\"content_id\": \"1f6676ff-a205-4a54-a8ba-7af0f7172759\", \"reasoning\": \"I wrote this myself.\"}'
 ```
 
 ```json
-
+{
+  "content_id": "1f6676ff-a205-4a54-a8ba-7af0f7172759",
+  "message": "Your appeal has been recorded and this item is now marked for review.",
+  "status": "under_review"
+}
 ```
 
 **What the log shows afterwards**
 
 ```bash
-$ curl "http://127.0.0.1:5000/log?limit=3"
+$ curl.exe "http://127.0.0.1:9000/log?limit=3"
 ```
 
 ```json
+{
+  "count": 3,
+  "entries": [
+    {
+      "combined_score": 0.22518718909421653,
+      "content_id": "84c1144b-a89a-4052-ae75-7165bcc8b402",
+      "creator_id": "u1",
+      "guess": "human",
+      "label": "We think this was probably written by a person.",
+      "model_score": 0.3046,
+      "status": "decided",
+      "style_score": 0.14577437818843306,
+      "timestamp": "2026-10-30T19:06:22+00:00"
+    },
+    {
+      "combined_score": 0.54,
+      "content_id": "688525a4-a3e8-4984-a8af-d37e17b1d6d4",
+      "creator_id": "u1",
+      "guess": "unsure",
+      "label": "We can't tell whether this was written by a person or with the help of AI. This is not an accusation, and plenty of people's own writing gets this result. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review.",
+      "model_score": 0.6986,
+      "status": "decided",
+      "style_score": 0.5,
+      "timestamp": "2026-10-30T19:06:37+00:00"
+    },
+    {
+      "content_id": "1f6676ff-a205-4a54-a8ba-7af0f7172759",
+      "creator_id": "u1",
+      "event": "appeal",
+      "reasoning": "I wrote this myself.",
+      "status": "under_review",
+      "timestamp": "2026-10-30T19:12:24+00:00"
+    }
+  ]
+}
 
 ```
 

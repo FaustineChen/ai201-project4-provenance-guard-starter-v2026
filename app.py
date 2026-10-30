@@ -55,6 +55,7 @@ app = Flask(__name__)
 # anything real — a restart forgets every count.
 
 MAX_TEXT_LENGTH = 10_000
+MAX_REASONING_LENGTH = 2000
 
 class _LimiterOff:
     """
@@ -236,6 +237,8 @@ def submit():
         creator_id=creator_id,
         guess=guess,
         model_score=model_score,
+        style_score=style_score,
+        combined_score=combined_score,
         label=label
     )
 
@@ -271,7 +274,38 @@ def appeal():
     """
     payload = request.get_json(silent=True) or {}
 
-    # TODO: delete this and build the route.
+    content_id = payload.get("content_id")
+    reasoning = payload.get("reasoning")
+
+    if not isinstance(content_id, str) or not content_id.strip():
+        return jsonify({"error": "bad_request",
+                        "message": "content_id is required and must be a non-empty string"}), 400
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        return jsonify({"error": "bad_request",
+                        "message": "reasoning is required and must be a non-empty string"}), 400
+    if len(reasoning) > MAX_REASONING_LENGTH:
+        return jsonify({"error": "reasoning_too_long",
+                        "message": f"reasoning must be at most {MAX_REASONING_LENGTH} characters"}), 413
+
+    # the content_id must have an original decision. written by /submit
+    # have no "event" field; appeals and rejections do.
+    decisions = [e for e in audit.entries_for(content_id) if e.get("event") is None]
+    if not decisions:
+        return jsonify({"error": "not_found",
+                        "message": "no submission found for that content_id"}), 404
+
+    audit.log_appeal(content_id, decisions[0]["creator_id"], reasoning.strip())
+
+    return jsonify({
+        "content_id": content_id,
+        "status": "under_review",
+        "message": "Your appeal has been recorded and this item is now marked for review.",
+    }), 200
+
+
+
+
+    
     return jsonify({
         "error": "not_implemented",
         "message": "POST /appeal isn't built yet — see the TODO in app.py.",
