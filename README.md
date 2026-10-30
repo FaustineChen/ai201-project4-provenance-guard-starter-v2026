@@ -39,7 +39,25 @@
 <!-- The path a submission takes, from arriving to the label a reader sees.
      Six or seven steps — this is the trace you wrote in Milestone 1. -->
 
+Provenance Guard takes a piece of text and says whether it was probably written
+by a person or with AI, how sure it is, and what the writer reads. If the
+system is not sure, it says so instead of accusing anyone.
 
+A submission passes through these steps:
+
+1. **Request arrives** at `POST /submit` with `text` and `creator_id`. Valid input gets a new `content_id`.
+2. **Model signal** (`detector.py`): a local language model scores how predictable the text is. Adds `model_score` (0-1, higher = more AI-like).
+3. **Style signal** (`stylometry.py`): measures sentence-length spread, vocabulary variety and punctuation, without reading meaning.
+Adds `style_score` (0-1). Text under 4 sentences or 40 words returns 0.5.
+4. **Combine** (`scoring.py::combine_signals`): each signal is sorted into human, unsure or AI, and high-confidence AI needs both to agree. Adds
+   `combined_score`.
+5. **Label** (`scoring.py::score_to_label`): the combined score becomes one of three plain-English labels and a `guess` (`ai`, `human`, `unsure`).
+6. **Log** (`audit.py`): the decision and both signal scores are written to `logs/audit.jsonl` with status `decided`.
+7. **Response**: JSON with `content_id`, `guess`, `confidence`, `label`, and both signal scores.
+
+If a writer disagrees, `POST /appeal` with the `content_id` and their reasoning
+records the appeal next to the original decision and moves the item to
+`under_review`. Nothing is re-checked automatically.
 
 ---
 
@@ -169,13 +187,14 @@ The person reading it may have written every word themselves, so it starts with 
 It says outright that this is not an accusation, because "can't tell" can still sound like "we suspect you". It also says that this result is common for honest writers.
 It ends with the appeal option so the reader has something to do next.
 
-```
+```bash
 python -c "import scoring; [print(l, r) for l, r in scoring.label_ranges()]"
 ```
-
+```
 high-confidence human 0.00 – 0.40
 unsure 0.40 – 0.55
 high-confidence AI 0.55 – 1.00
+```
 ---
 
 ## Sample Run
@@ -278,14 +297,26 @@ $ curl.exe "http://127.0.0.1:9000/log?limit=3"
 **Moment 1**
 
 - *What I asked for:*
+I didn't understand what a "score spread" criterion meant or how one would be written before I had built anything.
+I asked what it checks and roughly how to write one.
+
 - *What came back:*
+An explanation that it checks whether the signals separate clearly-AI from clearly-human text, with example targets such as "the average AI score is at least 0.3 above the average human score", plus a version that compared AI scores to the lowest human score.
+
 - *What I changed:*
+I noticed that comparing against the lowest human score is almost impossible to fail, and "at most 1 human labeled AI" would still pass if the system labeled everything unsure, so I added a minimum number of pieces labeled human.
+
 
 **Moment 2**
 
 - *What I asked for:*
+The possible ways to combine the model signal and the style signal when they disagree.
+
 - *What came back:*
+A weighted average, and a suggestion that high-confidence AI should require both signals to agree.
+
 - *What I changed:*
+I decided that one signal saying AI and the other unsure should end up as unsure, because a false accusation costs more than a missed detection.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
