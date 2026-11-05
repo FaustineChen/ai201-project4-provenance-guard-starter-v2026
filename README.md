@@ -324,23 +324,56 @@ I decided that one signal saying AI and the other unsure should end up as unsure
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** _5_ per minute, _20_ per day
 
 **Why those numbers and not others:**
 <!-- Think about two people: a real writer submitting their own work a few
      times an hour, and a script sending a thousand variations to map your
      thresholds. Your numbers have to be liveable for the first and hostile to
      the second. -->
+5 per minute covers rapid revise-and-resubmit without friction, and 20 per day 
+is well above what one person needs for theirown work. 
+A script probing for the detector's boundary needs 20/day from one creator_id takes about 50 days, 
+slow enough to stand out in the audit log. 
+The daily cap is what hurts the attacker; the per-minute cap only stops bursts. 
+These limits do not stop a script that rotates creator_id.
+
 
 **What a caller counts as:** <!-- per address, or per creator_id? They fail
-differently — one script can look like a thousand callers, and one household
-can look like one. -->
+     differently — one script can look like a thousand callers, and one household
+     can look like one. -->
+Per creator_id (falls back to remote address if missing or invalid).  
+The weakness: creator_id is self-declared, so a script can send a new one with every request and never hit a limit, looking like a thousand callers.
 
 **The run of status codes when I pushed past it:**
 
 <!-- python run_attacks.py --flood 15 -->
 
 ```
+15 submissions as 'flood_tester' against http://127.0.0.1:9000
+The first one is slow while the model loads.
+
+  [ 1/15] 200
+  [ 2/15] 200
+  [ 3/15] 200
+  [ 4/15] 200
+  [ 5/15] 200
+  [ 6/15] 429
+  [ 7/15] 429
+  [ 8/15] 429
+  [ 9/15] 429
+  [10/15] 429
+  [11/15] 429
+  [12/15] 429
+  [13/15] 429
+  [14/15] 429
+  [15/15] 429
+
+============================================================
+200 200 200 200 200 429 429 429 429 429 429 429 429 429 429
+============================================================
+
+10 of 15 were rate limited.
 
 ```
 

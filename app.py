@@ -115,6 +115,7 @@ if config.RATE_LIMITING_ENABLED:
             creator_id=payload.get("creator_id", "unknown"),
             reason="rate_limited",
             limit=str(exc.description),
+            status_code=429,
         )
         return jsonify({
             "error": "rate_limited",
@@ -159,7 +160,7 @@ def health():
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
 @app.post("/submit")
-# @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
 def submit():
     """
     Take a piece of text, decide about it, log the decision, answer.
@@ -214,12 +215,30 @@ def submit():
 
     # check criteria 5
     if not isinstance(text, str) or not text.strip():
+        audit.log_rejection(
+                    creator_id=payload.get("creator_id", "unknown"),
+                    reason="empty_text",
+                    status_code=400,
+                )
         return jsonify({"error": "bad_request",
                         "message": "text is required to be a non-empty string"}), 400
+    
     if not isinstance(creator_id, str) or not creator_id.strip():
+        audit.log_rejection(
+                    creator_id=payload.get("creator_id", "unknown"),
+                    reason="empty_creator_id",
+                    status_code=400,
+                )
         return jsonify({"error": "bad_request",
                         "message": "creator_id is required and must be a non-empty string"}), 400
+    
     if len(text) > MAX_TEXT_LENGTH:
+        audit.log_rejection(
+                    creator_id=payload.get("creator_id", "unknown"),
+                    reason="text_too_long",
+                    status_code=413,
+                    text_length=len(text),
+                )
         return jsonify({"error": "text_too_long",
                         "message": f"text must be at most {MAX_TEXT_LENGTH} characters"}), 413
 
@@ -280,6 +299,7 @@ def appeal():
     if not isinstance(content_id, str) or not content_id.strip():
         return jsonify({"error": "bad_request",
                         "message": "content_id is required and must be a non-empty string"}), 400
+    
     if not isinstance(reasoning, str) or not reasoning.strip():
         return jsonify({"error": "bad_request",
                         "message": "reasoning is required and must be a non-empty string"}), 400
