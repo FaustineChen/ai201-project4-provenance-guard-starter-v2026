@@ -74,6 +74,15 @@ def combine_signals(model_score: float, style_score: float) -> float:
         config.WEIGHT_MODEL_SIGNAL * model_score
         + config.WEIGHT_STYLE_SIGNAL * style_score
     )
+
+    # single signal threshold
+    # MODEL_HUMAN_MAX = 0.50   # model <= , human
+    # MODEL_AI_MIN = 0.55      # model >= , AI
+    # STYLE_HUMAN_MAX = 0.30
+    # STYLE_AI_MIN = 0.55
+
+    HUMAN_THRESHOLD = 0.40
+    AI_THRESHOLD = 0.55
     model_state = _state(model_score, config.MODEL_HUMAN_MAX, config.MODEL_AI_MIN)
     style_state = _state(style_score, config.STYLE_HUMAN_MAX, config.STYLE_AI_MIN)
     states = {model_state, style_state}

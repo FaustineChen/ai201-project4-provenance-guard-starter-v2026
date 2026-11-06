@@ -99,7 +99,7 @@ AI_THRESHOLD = 0.55
 # Your README has to say why your numbers and not others.
 
 # RATE_LIMITING_ENABLED = os.getenv("AI201_RATE_LIMITS", "0") == "1"
-RATE_LIMITING_ENABLED = True
+RATE_LIMITING_ENABLED = False
 
 RATE_LIMIT_PER_MINUTE = 5
 RATE_LIMIT_PER_DAY = 20

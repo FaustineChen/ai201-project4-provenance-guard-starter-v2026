@@ -444,6 +444,19 @@ The label is the strongest one the system gives, so the writer's
 only recourse is to appeal, and I could not explain to them why plain
 documentation looked like AI.
 
+**Diagnoses**
+
+Pattern: model reads unusual AI-style text as human, and the combining rule turns that into a confident label.
+- Six evasion/injection inputs came back human: EV01, EV05, EV08, PI01, PI02, PI04. All six have model_score <= 0.50 (0.16, 0.32, 0.25, 0.46, 0.20, 0.4998).
+- All ten other evasion/injection inputs have model_score >= 0.55 and stayed unsure.
+- Typos, pasted fragments, injected sentences and very short text are less predictable to the language model, so it scores them as human.
+- The rule then makes it final: human + human averages to a confident human (EV05, PI01, PI02, PI04), and human + unsure returns human (EV01 and EV08, style 0.40 and 0.5).
+- no evasion input was labeled ai. "Held" here means unsure.
+
+The route: no 500 crash produced an audit entry
+- MF02: text is too short to score
+- RQ07: body is a JSON array, not an object
+
 ---
 
 ## Run Log and Verdicts
@@ -452,17 +465,44 @@ documentation looked like AI.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. False positives | 10 human-written, at most 1 is labeled high-confidence AI, at least 6 are labeled high-confidence human | 5 unsure, 5 human | 5 unsure, 5 human | 5 unsure, 5 human | MISSED |
+| 2. Score spread | 100 pairs (10 AI × 10 human): AI text has the higher combined score in at least 80% of pairs | 68/100 | 68/100 | 68/100 | MISSED |
+| 3. Label coverage | Every score returns exactly one of the three labels, and all three labels appear. | 3/3 | 3/3 | 3/3 | MET |
+| 4. The appeal path | All 10 appeals change to under_review and the reasoning can be read back. An appeal for a nonexistent content_id returns 404 and creates no record. | 10/10 | 10/10 | 10/10 | MET |
+| 5. Bad input | return a clear 4xx error (no 500, no crash) | 5/5 | 5/5 | 5/5 | MET |
 
 **Real output from one trial**, pasted as text, naming the file and function
 that produced it:
 
-```json
+Produced by `run_eval.py` (trial 1, scenario "my own writing", text 1), saved
+in `results/run_2026-11-05_2131_before.md`. The service function that built the response is
+`app.py::submit`.
 
+```json
+{
+     "status": 200,
+     "guess": "unsure",
+     "confidence": 0.5315,
+     "model_score": 0.8107,
+     "style_score": 0.2522957725138764,
+     "label": "We can't tell whether this was written by a person or with the help of AI. This is not an accusation, and plenty of people's own writing gets this result. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review.",
+     "sent": "Remote work has fundamentally transformed the modern workplace, offeri"
+}
+
+```
+
+**Criterion 3 (label coverage)**: produced by `test_criteria3.py`, calling
+`python test_criteria3.py` for 0.00 to 1.00 in steps of 0.01.
+```
+101 {('unsure', "We can't tell whether this was written by a person or with the help of AI. This is not an accusation, and plenty of people's ownwriting gets this result. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review."), ('human', 'We thinkthis was probably written by a person.'), ('ai', 'Our checks suggest this may have been written with AI. If you wrote it yourself, you can appealand your appeal will be recorded and marked for review.')}
+```
+
+**Criterion 4 (appeal path)**: produced by `test_criteria4.py`.
+```
+appeals recorded: 10 / 10
+under_review: 10 / 10
+with reasoning: 10 / 10
+404 test: 404 | appeal records before/after: 11 11
 ```
 
 **Diagnoses**
@@ -481,6 +521,21 @@ that produced it:
 
      Look for a pattern. Five failures on one signal is one problem, not five. -->
 
+**Criterion 1 (5/10 high-confidence human, needed 6): model.**
+Model: 5 of my 10 pieces scored model_score >= 0.55 (0.64, 0.72, 0.66, 0.68, 0.56) read half of my own writing as AI.
+Style: did not confirm (0.28, 0.5, 0.5, 0.5, 0.38), so the rule sent them to unsure: 0 false accusations, 5 unsure.
+The rule worked as designed; the miss comes from style signal's false-positive rate at the 0.55 cutoff.
+
+**Criterion 2 (68/100, needed 80): combining rule.**
+model_score alone ranks 91 of 100 pairs correctly; combined_score ranks 68.
+When the signals do not both agree, the rule clamps the score into 0.41-0.54,
+so 7 of 10 AI texts and 3 of 10 human texts all landed on exactly 0.54 (21 ties, which do not count as AI higher).
+The clamp keeps the label right but destroys the ordering.
+
+**Pattern: sometimes Style Model says almost nothing, so signal one decides alone.**
+- style_score was exactly 0.5 (the sentence or word too-short default) on 11 of my 20 eval texts (8 of 10 human, 3 of 10 AI).
+- It never reached 0.55 on any of the 20, so none of the 10 AI texts could satisfy "both signals say AI".
+- Style alone ranks the AI text higher in only 14 of 100 pairs.
 
 
 ---
