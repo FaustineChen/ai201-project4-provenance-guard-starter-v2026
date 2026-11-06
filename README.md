@@ -391,13 +391,58 @@ The first one is slow while the model loads.
 <!-- Choose entries that show the interesting failures, not the ten easiest. -->
 
 ```json
+{"timestamp": "2026-11-05T01:35:28+00:00", "content_id": "9da3aa88-f1bb-4454-9036-dff3ae78d3fb", "creator_id": "attacker_EV01", "guess": "human", "model_score": 0.1635, "style_score": 0.4, "combined_score": 0.28175, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-05T01:35:29+00:00", "content_id": "d3ebc308-4328-42b5-b330-74fa18a66d2c", "creator_id": "attacker_EV05", "guess": "human", "model_score": 0.3212, "style_score": 0.16174172878411203, "combined_score": 0.241470864392056, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-05T01:35:29+00:00", "content_id": "53eee5b7-4e9c-4715-b823-eda4bb6cba67", "creator_id": "attacker_EV08", "guess": "human", "model_score": 0.2452, "style_score": 0.5, "combined_score": 0.3726, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-05T01:35:30+00:00", "content_id": "5d49a1c4-c0d3-4732-a803-36a15d6f618e", "creator_id": "attacker_FP05", "guess": "ai", "model_score": 0.8005, "style_score": 0.6384900303221848, "combined_score": 0.7194950151610924, "label": "Our checks suggest this may have been written with AI. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review.", "status": "decided"}
+
+{"timestamp": "2026-11-05T01:35:30+00:00", "content_id": "8cba7a3f-b6c7-4ca6-8002-899b8611f1b9", "creator_id": "attacker_FP08", "guess": "human", "model_score": 0.3223, "style_score": 0.5, "combined_score": 0.4, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-05T01:35:30+00:00", "content_id": "200220fe-d4a3-4c4a-b07e-79cadf995aa6", "creator_id": "attacker_PI01", "guess": "human", "model_score": 0.4625, "style_score": 0.02987632470232838, "combined_score": 0.2461881623511642, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-05T01:35:30+00:00", "content_id": "a1b46e7d-4f17-4e69-97a0-71365934138f", "creator_id": "attacker_PI02", "guess": "human", "model_score": 0.2044, "style_score": 0.26075420892812873, "combined_score": 0.23257710446406438, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-05T01:35:31+00:00", "content_id": "68c7eab8-fd5d-436c-88a7-754d7b15da95", "creator_id": "attacker_PI04", "guess": "human", "model_score": 0.4998, "style_score": 0.2826354843295474, "combined_score": 0.3912177421647737, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-05T01:35:32+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute", "status_code": 429}
+
+{"timestamp": "2026-11-05T01:35:33+00:00", "creator_id": "attacker_flood", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute", "status_code": 429}
+
 
 ```
+RQ10 and RQ11 returned 429 in the run. Neither body is parseable as JSON, so
+neither had a usable creator_id and both counted against the shared
+remote-address bucket, which earlier malformed requests had already used up.
+They never reached submit(), so the run did not test how the route handles
+form-encoded or text/plain bodies.
+I re-sent both after the limit window reset:
+``` json
+RQ10 400 {
+  "error": "bad_request",
+  "message": "text is required to be a non-empty string"
+}
+
+RQ11 400 {
+  "error": "bad_request",
+  "message": "text is required to be a non-empty string"
+}
+```
+
+MF02 and RQ07 returned 500 and left no audit entry: the crash happened before
+any logging ran, so in the original run they were invisible in the log.
+
 
 **The single worst outcome** — the one I'd least want to explain to a writer
 whose work got caught by it:
-
-
+FP05 (`5d49a1c4-c0d3-4732-a803-36a15d6f618e`): technical documentation written
+by a person was labeled `ai` with confidence 0.720 (model_score 0.8005, style_score
+0.6385). This is the one false accusation in the run. 
+The label is the strongest one the system gives, so the writer's
+only recourse is to appeal, and I could not explain to them why plain
+documentation looked like AI.
 
 ---
 
