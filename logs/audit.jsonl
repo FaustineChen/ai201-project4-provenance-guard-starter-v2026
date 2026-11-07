@@ -208,3 +208,5 @@
 {"timestamp": "2026-11-06T02:40:55+00:00", "content_id": "72f65901-ca00-4cd4-a5ad-f912c3f27efb", "creator_id": "eval_appeal_7", "event": "appeal", "status": "under_review", "reasoning": "eval"}
 {"timestamp": "2026-11-06T02:40:55+00:00", "content_id": "612bf83e-e06e-4aae-a5f6-5158d0fa0f22", "creator_id": "eval_appeal_8", "event": "appeal", "status": "under_review", "reasoning": "eval"}
 {"timestamp": "2026-11-06T02:40:55+00:00", "content_id": "2386c49d-995e-477c-9999-74bd91d34d5e", "creator_id": "eval_appeal_9", "event": "appeal", "status": "under_review", "reasoning": "eval"}
+{"timestamp": "2026-11-07T22:52:31+00:00", "creator_id": "attacker_MF02", "event": "rejected", "status": "rejected", "reason": "text_too_short", "status_code": 400, "detail": "Text is too short to score — a few sentences at least."}
+{"timestamp": "2026-11-07T22:52:31+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "body_not_object", "status_code": 400}

@@ -27,6 +27,7 @@ Routes:
 import uuid
 
 from flask import Flask, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 import audit
 import config
@@ -156,6 +157,20 @@ def health():
         "log_entries": len(audit.read_entries()),
     })
 
+# handle 500
+@app.errorhandler(Exception)
+def unhandled(exc):
+    if isinstance(exc, HTTPException):
+        return exc                      # 404、405、413 bypass
+    app.logger.error("unhandled error", exc_info=exc)
+    audit.log_rejection(
+        creator_id="unknown",
+        reason="internal_error",
+        status_code=500,
+        error_type=type(exc).__name__,
+    )
+    return jsonify({"error": "internal_error",
+                    "message": "something went wrong"}), 500
 
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
@@ -210,6 +225,17 @@ def submit():
     """
     payload = request.get_json(silent=True) or {}
 
+    # check JSON array, string, number (RQ07)
+    if not isinstance(payload, dict):
+        audit.log_rejection(
+            creator_id="unknown",
+            reason="body_not_object",
+            status_code=400,
+        )
+
+        return jsonify({"error": "bad_request",
+                        "message": "body must be a JSON object"}), 400
+
     text = payload.get("text")
     creator_id = payload.get("creator_id")
 
@@ -243,8 +269,21 @@ def submit():
                         "message": f"text must be at most {MAX_TEXT_LENGTH} characters"}), 413
 
     content_id = str(uuid.uuid4())
-    model_score = detector.model_signal(text)
-    style_score = stylometry.style_signal(text)
+
+    # signals raise ValueError for text that is too short to score (MF02)
+    try:
+        model_score = detector.model_signal(text)
+        style_score = stylometry.style_signal(text)
+
+    except ValueError as e:
+        audit.log_rejection(
+            creator_id=creator_id,
+            reason="text_too_short",
+            status_code=400,
+            detail=str(e),
+        )
+        return jsonify({"error": "bad_request", "message": str(e)}), 400
+    
     combined_score = scoring.combine_signals(model_score, style_score)
     guess, label = scoring.score_to_label(combined_score)
 
