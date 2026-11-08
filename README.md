@@ -320,6 +320,23 @@ I decided that one signal saying AI and the other unsure should end up as unsure
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
+**Moment 1**
+
+- *What I asked for:* suggest some ways to fix
+
+- *What came back:* The AI said the clamp in `combine_signals` flattens every mixed-signal score to exactly 0.54, and proposed rescaling scores into each label's range instead, predicting about 82/100 with no label changing.
+
+- *What I changed:* I did not use it. It would have fixed the number without changing any decision, so I changed the style signal instead (skip sentence-length spread under 4 sentences, rescale the other two weights). 
+
+
+**Moment 2**
+
+- *What I asked for:* Why the single-character input (MF02) returned a 500.
+
+- *What came back:* The AI first guessed a divide-by-zero in a signal and said the detector had no minimum-length check. The attack report's error text showed both were wrong: a signal raises `ValueError("Text is too short to score")` on purpose and the route never caught it.
+
+
+- *What I changed:* I caught `ValueError` in `submit()`, returned a 400 and wrote an audit entry, and added a global 500 handler that logs `internal_error`.
 ---
 
 ## Rate Limiting
