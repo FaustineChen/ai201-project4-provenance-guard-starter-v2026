@@ -427,9 +427,8 @@ The first one is slow while the model loads.
 {"timestamp": "2026-11-05T01:35:32+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute", "status_code": 429}
 
 {"timestamp": "2026-11-05T01:35:33+00:00", "creator_id": "attacker_flood", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute", "status_code": 429}
-
-
 ```
+
 RQ10 and RQ11 returned 429 in the run. Neither body is parseable as JSON, so
 neither had a usable creator_id and both counted against the shared
 remote-address bucket, which earlier malformed requests had already used up.
@@ -452,8 +451,7 @@ MF02 and RQ07 returned 500 and left no audit entry: the crash happened before
 any logging ran, so in the original run they were invisible in the log.
 
 
-**The single worst outcome** — the one I'd least want to explain to a writer
-whose work got caught by it:
+**The single worst outcome** — the one I'd least want to explain to a writer whose work got caught by it:
 FP05 (`5d49a1c4-c0d3-4732-a803-36a15d6f618e`): technical documentation written
 by a person was labeled `ai` with confidence 0.720 (model_score 0.8005, style_score
 0.6385). This is the one false accusation in the run. 
@@ -539,15 +537,14 @@ with reasoning: 10 / 10
      Look for a pattern. Five failures on one signal is one problem, not five. -->
 
 **Criterion 1 (5/10 high-confidence human, needed 6): model.**
-Model: 5 of my 10 pieces scored model_score >= 0.55 (0.64, 0.72, 0.66, 0.68, 0.56) read half of my own writing as AI.
-Style: did not confirm (0.28, 0.5, 0.5, 0.5, 0.38), so the rule sent them to unsure: 0 false accusations, 5 unsure.
-The rule worked as designed; the miss comes from style signal's false-positive rate at the 0.55 cutoff.
+- Model: 5 of my 10 pieces scored model_score >= 0.55 (0.64, 0.72, 0.66, 0.68, 0.56) read half of my own writing as AI.
+- Style: did not confirm (0.28, 0.5, 0.5, 0.5, 0.38), so the rule sent them to unsure: 0 false accusations, 5 unsure.
+- The rule worked as designed; the miss comes from style signal's false-positive rate at the 0.55 cutoff.
 
 **Criterion 2 (68/100, needed 80): combining rule.**
-model_score alone ranks 91 of 100 pairs correctly; combined_score ranks 68.
-When the signals do not both agree, the rule clamps the score into 0.41-0.54,
-so 7 of 10 AI texts and 3 of 10 human texts all landed on exactly 0.54 (21 ties, which do not count as AI higher).
-The clamp keeps the label right but destroys the ordering.
+- model_score alone ranks 91 of 100 pairs correctly; combined_score ranks 68.
+- When the signals do not both agree, the rule clamps the score into 0.41-0.54, so 7 of 10 AI texts and 3 of 10 human texts all landed on exactly 0.54 (21 ties, which do not count as AI higher).
+- The clamp keeps the label right but destroys the ordering.
 
 **Pattern: sometimes Style Model says almost nothing, so signal one decides alone.**
 - style_score was exactly 0.5 (the sentence or word too-short default) on 11 of my 20 eval texts (8 of 10 human, 3 of 10 AI).
