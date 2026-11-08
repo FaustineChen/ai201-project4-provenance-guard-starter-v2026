@@ -34,7 +34,7 @@ import re
 import statistics
 
 MIN_WORDS = 40          # less then 40 words -> not enough signal, return 0.5
-MIN_SENTENCES = 4       # same as above
+MIN_SENTENCES = 4       # fewer than 4 sentences -> sentence-length spread is not scored
 TTR_WINDOW = 50         # TTR only count first 50 words to avoid the impact of long paragraph
 CV_HUMAN, CV_AI = 0.70, 0.20     # coefficient of variance of length of sentence:>=0.70 human,<=0.20 AI
 TTR_HUMAN, TTR_AI = 0.90, 0.60   # TTR:>=0.90 humna,<=0.60 AI
@@ -156,12 +156,19 @@ def style_signal(text: str) -> float:
     you trust it. Plain and ordinary, not formal: formal prose reads as *human*
     to signal one, and it is plain writing that gets accused.
     """
-    if len(words(text)) < MIN_WORDS or len(sentences(text)) < MIN_SENTENCES:
+    if len(words(text)) < MIN_WORDS:
         return 0.5
     
-    spread_ai = clamp((CV_HUMAN - sentence_length_spread(text)) / (CV_HUMAN - CV_AI))
     ttr_ai = clamp((TTR_HUMAN - type_token_ratio(text)) / (TTR_HUMAN - TTR_AI))
     punct_ai = clamp(punctuation_density(text) / PUNCT_AI)
+
+    # enough words but too few sentences
+    # only score on TTR and punctuation
+    if len(sentences(text)) < MIN_SENTENCES:
+        w = WEIGHTS["ttr"] + WEIGHTS["punct"]
+        return (WEIGHTS["ttr"] * ttr_ai + WEIGHTS["punct"] * punct_ai) / w
+
+    spread_ai = clamp((CV_HUMAN - sentence_length_spread(text)) / (CV_HUMAN - CV_AI))
 
     return (WEIGHTS["spread"] * spread_ai
             + WEIGHTS["ttr"] * ttr_ai

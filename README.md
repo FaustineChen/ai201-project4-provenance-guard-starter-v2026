@@ -543,13 +543,90 @@ The clamp keeps the label right but destroys the ordering.
 ## The Improvement
 
 **What I changed:**
+In `stylometry.py::style_signal`, the 0.5 "not enough evidence" return now happens only below 40 words. With 40 or more words but fewer than 4 sentences, sentence-length spread is skipped and the style score uses type-token ratio and punctuation density only, with their weights rescaled to sum to 1 (0.5 each). Texts with 4 or more sentences are scored as before.
 
 **Which diagnosis pointed at it:**
+10 of my 20 eval texts (8 of 10 human, 2 of 10 AI) had at least 40 words but only 2 or 3 sentences, so the old OR gate returned 0.5 and the style signal said nothing on them. Spread is the only feature that needs several sentences to mean anything; the other two only need enough words. The change gives each feature its own minimum evidence instead of silencing the whole signal.
 
 ### Attack Run — After
 
 <!-- Same format. `run_attacks.py --label after` -->
 
+**Ten audit log entries from the run**
+
+<!-- Choose entries that show the interesting failures, not the ten easiest. -->
+
+```json
+{"timestamp": "2026-11-08T03:58:29+00:00", "content_id": "ab1e4913-932c-47db-8ac0-faad2f6634d8", "creator_id": "attacker_EV01", "guess": "human", "model_score": 0.1635, "style_score": 0.4, "combined_score": 0.28175, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-08T03:58:30+00:00", "content_id": "424a7426-383f-4bb1-be5d-1c22f72d71e8", "creator_id": "attacker_EV05", "guess": "human", "model_score": 0.3212, "style_score": 0.16174172878411203, "combined_score": 0.241470864392056, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-08T03:58:30+00:00", "content_id": "139c3d42-107c-42fa-80a9-0331bb087785", "creator_id": "attacker_EV08", "guess": "human", "model_score": 0.2452, "style_score": 0.5, "combined_score": 0.3726, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-08T03:58:31+00:00", "content_id": "8a2bd0c0-3e67-4f63-82e3-c4780b1c8ff3", "creator_id": "attacker_FP05", "guess": "ai", "model_score": 0.8005, "style_score": 0.6384900303221848, "combined_score": 0.7194950151610924, "label": "Our checks suggest this may have been written with AI. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review.", "status": "decided"}
+
+{"timestamp": "2026-11-08T03:58:32+00:00", "content_id": "eee6dab3-b0dd-4ce3-8569-8c5d6441c29c", "creator_id": "attacker_FP08", "guess": "human", "model_score": 0.3223, "style_score": 0.5, "combined_score": 0.4, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-08T03:58:32+00:00", "content_id": "06adc520-00c4-490a-9f8f-b56e0ca590b9", "creator_id": "attacker_PI01", "guess": "human", "model_score": 0.4625, "style_score": 0.02987632470232838, "combined_score": 0.2461881623511642, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-08T03:58:32+00:00", "content_id": "153180f5-31bc-4934-a347-a0407dac4b17", "creator_id": "attacker_PI02", "guess": "human", "model_score": 0.2044, "style_score": 0.26075420892812873, "combined_score": 0.23257710446406438, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-08T03:58:32+00:00", "content_id": "cbdefc72-7377-4c89-9583-7097ef76f581", "creator_id": "attacker_PI04", "guess": "human", "model_score": 0.4998, "style_score": 0.2826354843295474, "combined_score": 0.3912177421647737, "label": "We think this was probably written by a person.", "status": "decided"}
+
+{"timestamp": "2026-11-08T03:58:32+00:00", "content_id": "2f655c6e-27bf-4105-89d0-eb7046c932b5", "creator_id": "attacker_MF03", "guess": "human", "model_score": 0.0, "style_score": 0.5, "combined_score": 0.25, "label": "We think this was probably written by a person.", "status": "decided"}
+
+
+{"timestamp": "2026-11-08T03:58:34+00:00", "creator_id": "attacker_RQ12", "event": "rejected", "status": "rejected", "reason": "empty_text", "status_code": 400}
+```
+
+**The single worst outcome** — same as attack before, FP05 technical documentation written
+by a person was still labeled `ai`.
+
+---
+
+## Run Log and Verdicts
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| 1. False positives | 10 human-written, at most 1 is labeled high-confidence AI, at least 6 are labeled high-confidence human | 5 unsure, 4 human, 1 ai | 5 unsure, 4 human, 1 ai | 5 unsure, 4 human, 1 ai | MISSED |
+| 2. Score spread | 100 pairs (10 AI × 10 human): AI text has the higher combined score in at least 80% of pairs | 83/100 | 83/100 | 83/100 | MET |
+| 3. Label coverage | Every score returns exactly one of the three labels, and all three labels appear. | 3/3 | 3/3 | 3/3 | MET |
+| 4. The appeal path | All 10 appeals change to under_review and the reasoning can be read back. An appeal for a nonexistent content_id returns 404 and creates no record. | 10/10 | 10/10 | 10/10 | MET |
+| 5. Bad input | return a clear 4xx error (no 500, no crash) | 5/5 | 5/5 | 5/5 | MET |
+
+**Real output from one trial**, pasted as text, naming the file and function
+that produced it:
+
+Produced by `run_eval.py` (trial 1, scenario "my own writing", text 1), saved
+in `results/run_2026-11-07_2259_after.md`. The service function that built the response is
+`app.py::submit`.
+
+```json
+{
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5545,
+    "model_score": 0.7244,
+    "style_score": 0.1666666666666666,
+    "label": "We can't tell whether this was written by a person or with the help of AI. This is not an accusation, and plenty of people's own writing gets this result. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review.",
+    "sent": "For the project, we sometimes allow certain third-party components and"
+  }
+
+```
+
+**Criterion 3 (label coverage)**: produced by `test_criteria3.py`, calling
+`python test_criteria3.py` for 0.00 to 1.00 in steps of 0.01.
+```
+101 {('unsure', "We can't tell whether this was written by a person or with the help of AI. This is not an accusation, and plenty of people's ownwriting gets this result. If you wrote it yourself, you can appeal and your appeal will be recorded and marked for review."), ('human', 'We thinkthis was probably written by a person.'), ('ai', 'Our checks suggest this may have been written with AI. If you wrote it yourself, you can appealand your appeal will be recorded and marked for review.')}
+```
+
+**Criterion 4 (appeal path)**: produced by `test_criteria4.py`.
+```
+appeals recorded: 10 / 10
+under_review: 10 / 10
+with reasoning: 10 / 10
+404 test: 404 | appeal records before/after: 21 21
+```
 
 
 **Did it help, and how do I know:**
@@ -557,7 +634,17 @@ The clamp keeps the label right but destroys the ordering.
 <!-- Widening the unsure band usually fixes one problem and creates another.
      Reporting that trade honestly is worth full credit. -->
 
+**run attack**
+- Of the 29 attack inputs that reach scoring, 28 are identical to the first run: same label and same model and style scores.
+- The only input that changed is EV07 (evasion): its style score went from 0.500 to 0.633, and the label from unsure to ai.
+- Nothing else move. The change was narrow on this set because most attack texts either have at least 4 sentences or fewer than 40 words, so the gate did not apply to them.
 
+**run eval**
+- After the style change: criterion 2 went from 68/100 (21 ties) to 83/100 (0 ties), meeting the 80% target.
+     - because the style score no longer sits at the neutral 0.5, which removed the ties at 0.54
+     - not because the style signal became informative
+- Criterion 1 got worse: my own writing is now 1 ai / 4 human / 5 unsure (was 0 / 5 / 5).
+     - Human 3 was labeled ai (model 0.66, style 0.60), the first false accusation in the evaluation, and human 7 moved from human to unsure because the new style score (0.72) disagrees with its human model score (0.095).
 
 ---
 
@@ -565,14 +652,18 @@ The clamp keeps the label right but destroys the ordering.
 
 <!-- For each attack still getting through and each criterion still missed:
      what you'd do, and why you stopped. -->
+**Criterion 1 (1 ai / 4 human / 5 unsure; target is at most 1 ai and at least 6 human).** 
+I would recalibrate the model signal's 0.55 line and the style
+signal's TTR and punctuation cutoffs on a separate set of human writing that includes formal and non-native English. I stopped because the only labeled texts I have are the ten I test on, so any threshold I moved would be fitted to the test.
 
+**Root cause: the style signal barely separates the groups.** Its mean is 0.31 for AI and 0.28 for human, and the spread inside each group (AI 0.03 to 0.50, human 0.00 to 0.72) is larger than the gap between them. I suspect (untested) that formal writing and non-native English raise human scores. Fixing it means rebuilding the features and validating them on more samples than I have.
 
 
 **The trade I'd make if this ran for real:**
 
 <!-- Two sentences. Fewer wrong accusations means more AI text getting through.
      Say which way you'd go and WHO PAYS FOR IT. -->
-
+I would keep requiring both signals before accusing anyone, so fewer writers are wrongly accused and more AI text gets through unlabeled. The cost falls on readers and on writers whose own work competes with that unlabeled AI text, rather than on a writer who must prove through an appeal that their own work is theirs.
 
 
 <!-- ═════════════════════════════════════════════════════════════════════
